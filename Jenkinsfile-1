@@ -1,0 +1,82 @@
+pipeline {
+    agent any  // Runs the pipeline on any available Jenkins agent
+
+    environment {
+        // Define environment variables
+        DOCKER_IMAGE_NAME = "devops-java-example"
+        DOCKER_REGISTRY = "your-dockerhub-username" // Replace with your Docker Hub username or registry
+        DOCKER_TAG = "latest" // Or use Git commit SHA as tag for better versioning
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                // Checkout the project code from the repository
+                git 'https://github.com/your-username/devops-java-example.git' // Replace with your repo URL
+            }
+        }
+
+        stage('Build') {
+            steps {
+                script {
+                    // Build the project using Maven
+                    sh 'mvn clean install -DskipTests'  // Skips tests during build (can be changed if you want)
+                }
+            }
+        }
+
+        stage('Test') {
+            steps {
+                script {
+                    // Run unit tests to ensure the code is working
+                    sh 'mvn test'  // Executes tests on the codebase
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    // Build the Docker image
+                    sh 'docker build -t $DOCKER_REGISTRY/$DOCKER_IMAGE_NAME:$DOCKER_TAG .'
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    // Log in to Docker Hub or private registry (ensure credentials are set up in Jenkins)
+                    withDockerRegistry([ credentialsId: 'dockerhub-credentials-id', url: 'https://index.docker.io/v1/' ]) {
+                        // Push the Docker image to Docker Hub
+                        sh 'docker push $DOCKER_REGISTRY/$DOCKER_IMAGE_NAME:$DOCKER_TAG'
+                    }
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                script {
+                    // Deploy the Docker container (can be adjusted depending on deployment method)
+                    // Example: Running the Docker container locally or on a remote server
+                    sh 'docker run -d -p 8080:8080 $DOCKER_REGISTRY/$DOCKER_IMAGE_NAME:$DOCKER_TAG'
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Pipeline completed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed!'
+        }
+        always {
+            // Clean up resources if necessary
+            cleanWs()  // Cleans up the workspace after the pipeline
+        }
+    }
+}
+
